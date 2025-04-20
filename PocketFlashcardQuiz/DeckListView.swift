@@ -19,7 +19,7 @@ struct DeckListView: View {
                 .ignoresSafeArea()
                 
                 VStack {
-                    Text("Quizzes today: 0")
+                    Text("Quizzes today: 00")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .padding(.top)
