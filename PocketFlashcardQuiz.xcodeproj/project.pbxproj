@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C1F2D7912DB4948E00921988 /* CSV in Frameworks */ = {isa = PBXBuildFile; productRef = C1F2D7902DB4948E00921988 /* CSV */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		C1F2D7492DB48B4900921988 /* PocketFlashcardQuiz.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PocketFlashcardQuiz.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C1F2D7912DB4948E00921988 /* CSV in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = PocketFlashcardQuiz;
 			packageProductDependencies = (
+				C1F2D7902DB4948E00921988 /* CSV */,
 			);
 			productName = PocketFlashcardQuiz;
 			productReference = C1F2D7492DB48B4900921988 /* PocketFlashcardQuiz.app */;
@@ -94,6 +100,9 @@
 			);
 			mainGroup = C1F2D7402DB48B4900921988;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C1F2D78F2DB4948E00921988 /* XCRemoteSwiftPackageReference "CSV.swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C1F2D74A2DB48B4900921988 /* Products */;
 			projectDirPath = "";
@@ -324,6 +333,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C1F2D78F2DB4948E00921988 /* XCRemoteSwiftPackageReference "CSV.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/yaslab/CSV.swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.3;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C1F2D7902DB4948E00921988 /* CSV */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C1F2D78F2DB4948E00921988 /* XCRemoteSwiftPackageReference "CSV.swift" */;
+			productName = CSV;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C1F2D7412DB48B4900921988 /* Project object */;
 }
