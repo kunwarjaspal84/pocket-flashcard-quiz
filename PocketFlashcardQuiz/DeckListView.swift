@@ -34,7 +34,8 @@ struct DeckListView: View {
                         ) {
                             ForEach(decks) { deck in
                                 NavigationLink {
-                                    Text("Deck Detail Placeholder") // To be replaced
+                                    QuizView(deck: deck)
+                                            .environment(\.managedObjectContext, viewContext) // To be replaced
                                 } label: {
                                     VStack(alignment: .leading, spacing: 8) {
                                         Text(deck.name)
