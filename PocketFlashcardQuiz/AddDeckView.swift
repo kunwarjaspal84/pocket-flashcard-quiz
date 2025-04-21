@@ -1,10 +1,3 @@
-//
-//  AddDeckView.swift
-//  PocketFlashcardQuiz
-//
-//  Created by Kunwardeep Singh on 2025-04-19.
-//
-
 import SwiftUI
 import CoreData
 
@@ -12,8 +5,15 @@ struct AddDeckView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
     
-    @State private var name: String = ""
-    @State private var category: String = ""
+    @State private var name: String
+    @State private var category: String
+    private let deck: Deck?
+    
+    init(deck: Deck? = nil) {
+        self.deck = deck
+        self._name = State(initialValue: deck?.name ?? "")
+        self._category = State(initialValue: deck?.category ?? "")
+    }
     
     var body: some View {
         NavigationStack {
@@ -23,7 +23,7 @@ struct AddDeckView: View {
                     TextField("Category (optional)", text: $category)
                 }
             }
-            .navigationTitle("New Deck")
+            .navigationTitle(deck == nil ? "New Deck" : "Edit Deck")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -32,11 +32,13 @@ struct AddDeckView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        let newDeck = Deck(context: viewContext)
-                        newDeck.id = UUID()
-                        newDeck.name = name.isEmpty ? "Untitled" : name
-                        newDeck.category = category.isEmpty ? nil : category
-                        newDeck.createdAt = Date()
+                        let targetDeck = deck ?? Deck(context: viewContext)
+                        if deck == nil {
+                            targetDeck.id = UUID()
+                            targetDeck.createdAt = Date()
+                        }
+                        targetDeck.name = name.isEmpty ? "Untitled" : name
+                        targetDeck.category = category.isEmpty ? nil : category
                         
                         do {
                             try viewContext.save()

@@ -1,11 +1,3 @@
-//
-//  QuizView.swift
-//  PocketFlashcardQuiz
-//
-//  Created by Kunwardeep Singh on 2025-04-21.
-//
-
-
 import SwiftUI
 import CoreData
 
@@ -32,7 +24,7 @@ struct QuizView: View {
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(.white)
                                 .shadow(color: .init(hex: "#87CEEB").opacity(0.3), radius: 4)
-                            Text(isFlipped ? card.back : card.front)
+                            Text(isFlipped ? (card.back ?? "") : (card.front ?? ""))
                                 .font(.system(.title2, design: .rounded))
                                 .foregroundStyle(.primary)
                                 .padding()
@@ -78,7 +70,7 @@ struct QuizView: View {
                     }
                 }
             }
-            .navigationTitle(deck.name)
+            .navigationTitle(deck.name ?? "Untitled")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 loadNextCard()

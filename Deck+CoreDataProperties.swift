@@ -2,7 +2,8 @@
 //  Deck+CoreDataProperties.swift
 //  PocketFlashcardQuiz
 //
-//  Created by Kunwardeep Singh on 2025-04-19.
+//  Created by Kunwardeep Singh on 2025-04-21.
+//
 //
 
 import Foundation
