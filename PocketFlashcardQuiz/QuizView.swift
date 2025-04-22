@@ -3,130 +3,75 @@ import CoreData
 
 struct QuizView: View {
     @Environment(\.managedObjectContext) private var viewContext
-    @Environment(\.dismiss) private var dismiss
-    
     let deck: Deck
     @State private var currentCard: Card?
     @State private var showAnswer = false
-    @State private var cardsToReview: [Card] = []
-    @State private var currentIndex = 0
-    @State private var errorMessage: String?
+    @State private var rating = 0
+    @State private var difficultyFilter = "All"
+    private let difficulties = ["All", "Beginner", "Intermediate", "Advanced"]
     
     var body: some View {
         VStack {
-            if let error = errorMessage {
-                Text("Error: \(error)")
-                    .font(.title2)
-                    .foregroundStyle(.red)
+            Picker("Difficulty", selection: $difficultyFilter) {
+                ForEach(difficulties, id: \.self) { level in
+                    Text(level).tag(level)
+                }
+            }
+            .pickerStyle(SegmentedPickerStyle())
+            .padding()
+            
+            if let card = currentCard {
+                Text((showAnswer ? card.back : card.front) ?? "")
+                    .font(.title)
                     .padding()
-            } else if cardsToReview.isEmpty {
-                Text("No cards due for review")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-                    .padding()
-            } else if let card = currentCard {
-                VStack(spacing: 20) {
-                    Text(deck.name ?? "Untitled")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Spacer()
-                    
-                    Text(showAnswer ? card.back ?? "" : card.front ?? "")
-                        .font(.title3)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .shadow(radius: 4)
-                        .multilineTextAlignment(.center)
-                    
-                    Spacer()
-                    
-                    if showAnswer {
-                        HStack(spacing: 10) {
-                            ForEach(0...5, id: \.self) { quality in
-                                Button(action: {
-                                    rateCard(quality: quality)
-                                }) {
-                                    Text("\(quality)")
-                                        .font(.system(.headline, design: .rounded))
-                                        .padding()
-                                        .frame(maxWidth: .infinity)
-                                        .background(quality >= 3 ? .blue : .red)
-                                        .foregroundStyle(.white)
-                                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                                }
-                            }
+                
+                if showAnswer {
+                    Text("Rate your recall (0-5):")
+                    Picker("Rating", selection: $rating) {
+                        ForEach(0...5, id: \.self) { i in
+                            Text("\(i)").tag(i)
                         }
-                        .padding(.horizontal)
-                    } else {
-                        Button("Show Answer") {
-                            showAnswer = true
-                        }
-                        .font(.system(.headline, design: .rounded))
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(.blue)
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .padding(.horizontal)
                     }
+                    .pickerStyle(SegmentedPickerStyle())
+                    
+                    Button("Submit") {
+                        SpacedRepetition.updateCard(card: card, rating: rating)
+                        try? viewContext.save()
+                        print("Updated Card: \(card.front), Mastery: \(card.mastery), Interval: \(card.interval), LastReviewed: \(card.lastReviewed?.description ?? "nil")")
+                        nextCard()
+                    }
+                    .padding()
+                    .disabled(rating == 0)
+                } else {
+                    Button("Show Answer") {
+                        showAnswer = true
+                    }
+                    .padding()
                 }
-                .padding()
+            } else {
+                Text("No cards due for this difficulty")
+                    .font(.title)
+                    .foregroundStyle(.gray)
             }
         }
-        .background(
-            LinearGradient(
-                colors: [.init(hex: "#E6E6FA"), .init(hex: "#D8BFD8")],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        )
-        .navigationTitle("Quiz")
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("End Quiz") {
-                    dismiss()
-                }
-            }
-        }
+        .navigationTitle(deck.name ?? "Quiz")
         .onAppear {
-            loadCards()
+            nextCard()
         }
     }
     
-    private func loadCards() {
-        cardsToReview = SpacedRepetition.cardsDueToday(in: deck)
-        currentIndex = 0
-        currentCard = cardsToReview.isEmpty ? nil : cardsToReview[0]
-    }
-    
-    private func rateCard(quality: Int) {
-        guard let card = currentCard else { return }
-        SpacedRepetition.updateCard(card, quality: quality)
-        
-        do {
-            try viewContext.save()
-        } catch {
-            errorMessage = "Failed to save card: \(error.localizedDescription)"
-            print("Error saving card: \(error)")
-            return
+    private func nextCard() {
+        let dueCards = SpacedRepetition.cardsDueToday(in: deck).filter { card in
+            difficultyFilter == "All" || card.difficulty == difficultyFilter
         }
-        
-        currentIndex += 1
-        if currentIndex < cardsToReview.count {
-            currentCard = cardsToReview[currentIndex]
-            showAnswer = false
-        } else {
-            currentCard = nil
-            cardsToReview = []
-        }
+        currentCard = dueCards.randomElement()
+        showAnswer = false
+        rating = 0
+        print("Deck \(deck.name ?? "Untitled"): \(dueCards.count) cards due out of \(deck.cards?.count ?? 0)")
     }
 }
 
 #Preview {
-    QuizView(deck: Deck(context: PersistenceController.preview.container.viewContext))
+    QuizView(deck: Deck())
         .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }

@@ -1,57 +1,46 @@
 import Foundation
+import CoreData
 
-struct SpacedRepetition {
-    static func updateCard(_ card: Card, quality: Int) {
-        guard quality >= 0 && quality <= 5 else { return }
-        
-        let currentMastery = card.mastery
-        let currentInterval = card.interval
-        
-        // Update mastery (0.0 to 1.0)
-        let masteryDelta = Double(quality - 3) * 0.1
-        card.mastery = min(max(currentMastery + masteryDelta, 0.0), 1.0)
-        
-        // Update interval (days)
-        let newInterval: Double
-        if quality >= 3 {
-            if currentInterval == 0 {
-                newInterval = 1 // First review: 1 day
-            } else if currentInterval == 1 {
-                newInterval = 6 // Second review: 6 days
-            } else {
-                let easeFactor = 1.3 + (card.mastery * 0.7)
-                newInterval = currentInterval * easeFactor
-            }
-        } else {
-            newInterval = 1 // Reset interval on poor performance
-        }
-        card.interval = newInterval
-        
-        // Update lastReviewed
-        card.lastReviewed = Date()
-        print("Updated Card: \(card.front), Mastery: \(card.mastery), Interval: \(card.interval), LastReviewed: \(card.lastReviewed?.description ?? "nil")")
-    }
-    
-    static func isCardDue(_ card: Card) -> Bool {
-        if card.lastReviewed == nil || card.interval == 0 {
-            print("Card \(card.front) is due: lastReviewed=\(card.lastReviewed?.description ?? "nil"), interval=\(card.interval)")
-            return true
-        }
-        let intervalDays = card.interval
-        guard let lastReviewed = card.lastReviewed,
-              let nextReviewDate = Calendar.current.date(byAdding: .day, value: Int(intervalDays), to: lastReviewed) else {
-            print("Card \(card.front) is due: invalid lastReviewed or date calculation")
-            return true
-        }
-        let isDue = Date() >= nextReviewDate
-        print("Card \(card.front) due check: lastReviewed=\(lastReviewed), interval=\(intervalDays), nextReview=\(nextReviewDate), isDue=\(isDue)")
-        return isDue
-    }
-    
+class SpacedRepetition {
     static func cardsDueToday(in deck: Deck) -> [Card] {
         let cards = deck.cards as? Set<Card> ?? []
-        let dueCards = cards.filter { isCardDue($0) }
-        print("Deck \(deck.name ?? "Untitled"): \(dueCards.count) cards due out of \(cards.count)")
-        return Array(dueCards)
+        return cards.filter { card in
+            guard let lastReviewed = card.lastReviewed else { return true }
+            let interval = card.interval
+            let nextReview = lastReviewed.addingTimeInterval(interval * 24 * 60 * 60)
+            let isDue = Date() >= nextReview
+            print("Card \(card.front) due check: lastReviewed=\(lastReviewed), interval=\(interval), nextReview=\(nextReview), isDue=\(isDue)")
+            return isDue
+        }
+    }
+    
+    static func updateCard(card: Card, rating: Int) {
+        let easeFactor = card.easeFactor > 0 ? card.easeFactor : 2.5
+        let newMastery = min(card.mastery + Double(rating) / 5.0, 1.0)
+        let quality = max(0, min(rating, 5))
+        
+        var newEaseFactor = easeFactor
+        if quality >= 3 {
+            let qualityDiff = 5 - quality
+            let adjustment = 0.1 - Double(qualityDiff) * 0.08 + Double(qualityDiff) * 0.02
+            newEaseFactor += adjustment
+        } else {
+            let qualityDouble = Double(quality)
+            newEaseFactor = max(1.3, newEaseFactor - 0.8 + qualityDouble * 0.28)
+        }
+        
+        let newInterval: Double
+        if quality < 3 {
+            newInterval = 1.0
+        } else if card.interval == 0.0 {
+            newInterval = quality == 3 ? 1.0 : quality == 4 ? 2.0 : 6.0
+        } else {
+            newInterval = card.interval * newEaseFactor
+        }
+        
+        card.mastery = newMastery
+        card.interval = newInterval
+        card.easeFactor = newEaseFactor
+        card.lastReviewed = Date()
     }
 }

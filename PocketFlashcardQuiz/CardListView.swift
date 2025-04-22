@@ -34,32 +34,14 @@ struct CardListView: View {
                 } else {
                     List {
                         ForEach(cards) { card in
-                            NavigationLink {
-                                AddCardView(deck: deck, card: card)
-                                    .environment(\.managedObjectContext, viewContext)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(card.front)
-                                        .font(.system(.headline, design: .rounded))
-                                        .foregroundStyle(.primary)
-                                    Text(card.back)
-                                        .font(.system(.subheadline))
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                    if let tags = card.tags {
-                                        Text(tags)
-                                            .font(.system(.caption))
-                                            .foregroundStyle(.blue)
+                            CardRowView(card: card, isHosted: deck.isHosted)
+                                .contextMenu {
+                                    if !deck.isHosted {
+                                        Button("Delete", role: .destructive) {
+                                            cardToDelete = card
+                                        }
                                     }
                                 }
-                            }
-                            .contextMenu {
-                                if !deck.isHosted {
-                                    Button("Delete", role: .destructive) {
-                                        cardToDelete = card
-                                    }
-                                }
-                            }
                         }
                     }
                     .listStyle(.plain)
@@ -67,24 +49,20 @@ struct CardListView: View {
             }
             .navigationTitle(deck.name ?? "")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    if !deck.isHosted {
-                        Button(action: {
-                            showingAddCard = true
-                        }) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(8)
-                                .background(.blue)
-                                .clipShape(Circle())
-                        }
-                        .sheet(isPresented: $showingAddCard) {
-                            AddCardView(deck: deck)
-                                .environment(\.managedObjectContext, viewContext)
-                        }
+                if !deck.isHosted {
+                    Button(action: { showingAddCard = true }) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(8)
+                            .background(.blue)
+                            .clipShape(Circle())
                     }
                 }
+            }
+            .sheet(isPresented: $showingAddCard) {
+                AddCardView(deck: deck)
+                    .environment(\.managedObjectContext, viewContext)
             }
             .alert("Delete Card", isPresented: Binding(
                 get: { cardToDelete != nil },
@@ -104,6 +82,36 @@ struct CardListView: View {
     }
 }
 
+struct CardRowView: View {
+    let card: Card
+    let isHosted: Bool
+    
+    var body: some View {
+        NavigationLink {
+            AddCardView(deck: card.deck!, card: isHosted ? nil : card)
+                .environment(\.managedObjectContext, card.deck!.managedObjectContext!)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(card.front ?? "")
+                    .font(.system(.headline, design: .rounded))
+                    .foregroundStyle(.primary)
+                Text(card.back ?? "")
+                    .font(.system(.subheadline))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                HStack {
+                    Text("Tags: \(card.tags ?? "None")")
+                        .font(.system(.caption))
+                        .foregroundStyle(.blue)
+                    Text("Difficulty: \(card.difficulty ?? "Unknown")")
+                        .font(.system(.caption))
+                        .foregroundStyle(.purple)
+                }
+            }
+        }
+    }
+}
+
 #Preview {
     CardListView(deck: {
         let context = PersistenceController.preview.container.viewContext
@@ -112,6 +120,8 @@ struct CardListView: View {
         let card = Card(context: context)
         card.front = "Big"
         card.back = "Large"
+        card.tags = "Vocabulary"
+        card.difficulty = "Beginner"
         card.deck = deck
         return deck
     }())

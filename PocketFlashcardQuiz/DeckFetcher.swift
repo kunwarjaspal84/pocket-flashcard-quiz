@@ -136,6 +136,7 @@ class DeckFetcher {
                     card.front = columns[0]
                     card.back = columns[1]
                     card.tags = columns.count > 2 ? columns[2] : nil
+                    card.difficulty = columns.count > 3 ? columns[3] : "Beginner"
                     card.mastery = 0.0
                     card.interval = 0.0
                     card.lastReviewed = nil

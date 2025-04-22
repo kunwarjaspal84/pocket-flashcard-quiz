@@ -11,65 +11,77 @@ struct AddCardView: View {
     @State private var front: String
     @State private var back: String
     @State private var tags: String
+    @State private var difficulty: String
+    private let difficulties = ["Beginner", "Intermediate", "Advanced"]
     
     init(deck: Deck, card: Card? = nil) {
         self.deck = deck
         self.card = card
-        self._front = State(initialValue: card?.front ?? "")
-        self._back = State(initialValue: card?.back ?? "")
-        self._tags = State(initialValue: card?.tags ?? "")
+        if let card = card {
+            _front = State(initialValue: card.front ?? "")
+            _back = State(initialValue: card.back ?? "")
+            _tags = State(initialValue: card.tags ?? "")
+            _difficulty = State(initialValue: card.difficulty ?? "Beginner")
+        } else {
+            _front = State(initialValue: "")
+            _back = State(initialValue: "")
+            _tags = State(initialValue: "")
+            _difficulty = State(initialValue: "Beginner")
+        }
     }
     
     var body: some View {
         NavigationStack {
             Form {
-                Section(header: Text("Card Details")) {
-                    TextField("Front", text: $front)
-                    TextField("Back", text: $back)
-                    TextField("Tags (optional)", text: $tags)
+                TextField("Front", text: $front)
+                TextField("Back", text: $back)
+                TextField("Tags (Optional)", text: $tags)
+                Picker("Difficulty", selection: $difficulty) {
+                    ForEach(difficulties, id: \.self) { level in
+                        Text(level).tag(level)
+                    }
                 }
             }
             .navigationTitle(card == nil ? "New Card" : "Edit Card")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
+                    Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        let targetCard = card ?? Card(context: viewContext)
-                        targetCard.id = targetCard.id ?? UUID()
-                        targetCard.front = front
-                        targetCard.back = back
-                        targetCard.tags = tags.isEmpty ? nil : tags
-                        if card == nil {
-                            targetCard.mastery = 0.0
-                            targetCard.interval = 0.0
-                            targetCard.lastReviewed = nil
-                        }
-                        targetCard.deck = deck
-                        
-                        do {
-                            try viewContext.save()
-                            dismiss()
-                        } catch {
-                            print("Error saving card: \(error)")
-                        }
+                        saveCard()
+                        dismiss()
                     }
                     .disabled(front.isEmpty || back.isEmpty)
                 }
             }
         }
     }
+    
+    private func saveCard() {
+        let targetCard = card ?? Card(context: viewContext)
+        targetCard.front = front
+        targetCard.back = back
+        targetCard.tags = tags.isEmpty ? nil : tags
+        targetCard.difficulty = difficulty
+        targetCard.mastery = targetCard.mastery // Preserve existing
+        targetCard.interval = targetCard.interval
+        targetCard.lastReviewed = targetCard.lastReviewed
+        targetCard.deck = deck
+        if targetCard.id == nil {
+            targetCard.id = UUID()
+        }
+        
+        do {
+            try viewContext.save()
+            print("Saved card: front=\(front), difficulty=\(difficulty), ID=\(targetCard.id?.uuidString ?? "nil")")
+        } catch {
+            print("Error saving card: \(error.localizedDescription)")
+        }
+    }
 }
 
 #Preview {
-    AddCardView(deck: {
-        let context = PersistenceController.preview.container.viewContext
-        let deck = Deck(context: context)
-        deck.name = "Test Deck"
-        return deck
-    }())
+    AddCardView(deck: Deck())
         .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }
