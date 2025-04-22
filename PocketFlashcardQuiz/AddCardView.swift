@@ -43,8 +43,11 @@ struct AddCardView: View {
                         targetCard.front = front
                         targetCard.back = back
                         targetCard.tags = tags.isEmpty ? nil : tags
-                        targetCard.mastery = targetCard.mastery
-                        targetCard.interval = targetCard.interval
+                        if card == nil {
+                            targetCard.mastery = 0.0
+                            targetCard.interval = 0.0
+                            targetCard.lastReviewed = nil
+                        }
                         targetCard.deck = deck
                         
                         do {

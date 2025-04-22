@@ -5,51 +5,53 @@ struct AddDeckView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
     
-    @State private var name: String
-    @State private var category: String
-    private let deck: Deck?
+    @State private var name = ""
+    @State private var category = ""
+    private var deck: Deck?
     
     init(deck: Deck? = nil) {
         self.deck = deck
-        self._name = State(initialValue: deck?.name ?? "")
-        self._category = State(initialValue: deck?.category ?? "")
+        if let deck = deck {
+            _name = State(initialValue: deck.name ?? "")
+            _category = State(initialValue: deck.category ?? "")
+        }
     }
     
     var body: some View {
         NavigationStack {
             Form {
-                Section(header: Text("Deck Details")) {
-                    TextField("Name", text: $name)
-                    TextField("Category (optional)", text: $category)
-                }
+                TextField("Deck Name", text: $name)
+                TextField("Category (Optional)", text: $category)
             }
             .navigationTitle(deck == nil ? "New Deck" : "Edit Deck")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
+                    Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        let targetDeck = deck ?? Deck(context: viewContext)
-                        if deck == nil {
-                            targetDeck.id = UUID()
-                            targetDeck.createdAt = Date()
-                        }
-                        targetDeck.name = name.isEmpty ? "Untitled" : name
-                        targetDeck.category = category.isEmpty ? nil : category
-                        
-                        do {
-                            try viewContext.save()
-                            dismiss()
-                        } catch {
-                            print("Error saving deck: \(error)")
-                        }
+                        saveDeck()
+                        dismiss()
                     }
                     .disabled(name.isEmpty)
                 }
             }
+        }
+    }
+    
+    private func saveDeck() {
+        let targetDeck = deck ?? Deck(context: viewContext)
+        targetDeck.name = name
+        targetDeck.category = category.isEmpty ? nil : category
+        targetDeck.createdAt = Date()
+        targetDeck.id = UUID()
+        targetDeck.isHosted = false
+        
+        do {
+            try viewContext.save()
+            print("Saved deck: \(name), isHosted: \(targetDeck.isHosted)")
+        } catch {
+            print("Error saving deck: \(error)")
         }
     }
 }
