@@ -41,15 +41,10 @@ struct MyDecksView: View {
     @State private var showingEditDeck = false
     @State private var deckToEdit: Deck?
     @State private var deckToDelete: Deck?
-    @State private var selectedDeckForQuiz: Deck?
+    @State private var selectedDeck: Deck?
+    @State private var selectedDifficulty: String?
     
     var body: some View {
-        let quizzesToday = decks.reduce(0) { count, deck in
-            let dueCount = SpacedRepetition.cardsDueToday(in: deck).count
-            print("Deck \(deck.name ?? "Untitled"): \(dueCount) quizzes today")
-            return count + dueCount
-        }
-        
         NavigationStack {
             ZStack {
                 LinearGradient(
@@ -70,14 +65,21 @@ struct MyDecksView: View {
                             .font(.system(.title3, design: .rounded))
                             .foregroundStyle(.gray)
                     } else {
-                        DeckGridView(decks: decks, onEdit: { deck in
-                            deckToEdit = deck
-                            showingEditDeck = true
-                        }, onDelete: { deck in
-                            deckToDelete = deck
-                        }, onQuiz: { deck in
-                            selectedDeckForQuiz = deck
-                        })
+                        DeckGridView(
+                            decks: decks,
+                            onEdit: { deck in
+                                deckToEdit = deck
+                                showingEditDeck = true
+                            },
+                            onDelete: { deck in
+                                deckToDelete = deck
+                            },
+                            onQuiz: { deck, difficulty in
+                                print("Quiz started for deck: \(deck.name ?? "Untitled"), difficulty: \(difficulty)")
+                                selectedDeck = deck
+                                selectedDifficulty = difficulty
+                            }
+                        )
                     }
                     
                     Spacer()
@@ -85,15 +87,29 @@ struct MyDecksView: View {
             }
             .navigationTitle("My Decks")
             .toolbar {
-                Button(action: {
-                    showingAddDeck = true
-                }) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(8)
-                        .background(.blue)
-                        .clipShape(Circle())
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if !decks.isEmpty {
+//                        Button(action: {
+//                            showingEditDeck = true
+//                        }) {
+//                            Image(systemName: "pencil")
+//                                .font(.system(size: 16, weight: .bold))
+//                                .foregroundStyle(.white)
+//                                .padding(8)
+//                                .background(.blue)
+//                                .clipShape(Circle())
+//                        }
+                    }
+                    Button(action: {
+                        showingAddDeck = true
+                    }) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(8)
+                            .background(.blue)
+                            .clipShape(Circle())
+                    }
                 }
             }
             .sheet(isPresented: $showingAddDeck) {
@@ -118,11 +134,11 @@ struct MyDecksView: View {
                 Text("Are you sure you want to delete this deck?")
             }
             .navigationDestination(isPresented: Binding(
-                get: { selectedDeckForQuiz != nil },
-                set: { if !$0 { selectedDeckForQuiz = nil } }
+                get: { selectedDeck != nil && selectedDifficulty != nil },
+                set: { if !$0 { selectedDeck = nil; selectedDifficulty = nil } }
             )) {
-                if let deck = selectedDeckForQuiz {
-                    QuizView(deck: deck)
+                if let deck = selectedDeck, let difficulty = selectedDifficulty {
+                    QuizView(deck: deck, difficultyFilter: difficulty)
                         .environment(\.managedObjectContext, viewContext)
                 }
             }
@@ -139,13 +155,27 @@ struct MyDecksView: View {
         }
     }
     
+    private var quizzesToday: Int {
+        decks.reduce(0) { count, deck in
+            let dueCount = SpacedRepetition.cardsDueToday(in: deck).count
+            print("Deck \(deck.name ?? "Untitled"): \(dueCount) quizzes today")
+            return count + dueCount
+        }
+    }
+    
     @ViewBuilder
     private func editDeckContent() -> some View {
         if let deck = deckToEdit {
             AddDeckView(deck: deck)
                 .environment(\.managedObjectContext, viewContext)
         } else {
-            Text("No deck selected")
+            List {
+                ForEach(decks) { deck in
+                    Button(deck.name ?? "Untitled") {
+                        deckToEdit = deck
+                    }
+                }
+            }
         }
     }
 }
@@ -158,15 +188,10 @@ struct ExploreDecksView: View {
         animation: .default
     ) private var decks: FetchedResults<Deck>
     
-    @State private var selectedDeckForQuiz: Deck?
+    @State private var selectedDeck: Deck?
+    @State private var selectedDifficulty: String?
     
     var body: some View {
-        let quizzesToday = decks.reduce(0) { count, deck in
-            let dueCount = SpacedRepetition.cardsDueToday(in: deck).count
-            print("Hosted Deck \(deck.name ?? "Untitled"): \(dueCount) quizzes today")
-            return count + dueCount
-        }
-        
         NavigationStack {
             ZStack {
                 LinearGradient(
@@ -187,9 +212,16 @@ struct ExploreDecksView: View {
                             .font(.system(.title3, design: .rounded))
                             .foregroundStyle(.gray)
                     } else {
-                        DeckGridView(decks: decks, onEdit: { _ in }, onDelete: { _ in }, onQuiz: { deck in
-                            selectedDeckForQuiz = deck
-                        })
+                        DeckGridView(
+                            decks: decks,
+                            onEdit: { _ in },
+                            onDelete: { _ in },
+                            onQuiz: { deck, difficulty in
+                                print("Quiz started for deck: \(deck.name ?? "Untitled"), difficulty: \(difficulty)")
+                                selectedDeck = deck
+                                selectedDifficulty = difficulty
+                            }
+                        )
                     }
                     
                     Spacer()
@@ -197,11 +229,11 @@ struct ExploreDecksView: View {
             }
             .navigationTitle("Explore Decks")
             .navigationDestination(isPresented: Binding(
-                get: { selectedDeckForQuiz != nil },
-                set: { if !$0 { selectedDeckForQuiz = nil } }
+                get: { selectedDeck != nil && selectedDifficulty != nil },
+                set: { if !$0 { selectedDeck = nil; selectedDifficulty = nil } }
             )) {
-                if let deck = selectedDeckForQuiz {
-                    QuizView(deck: deck)
+                if let deck = selectedDeck, let difficulty = selectedDifficulty {
+                    QuizView(deck: deck, difficultyFilter: difficulty)
                         .environment(\.managedObjectContext, viewContext)
                 }
             }
@@ -217,13 +249,21 @@ struct ExploreDecksView: View {
             }
         }
     }
+    
+    private var quizzesToday: Int {
+        decks.reduce(0) { count, deck in
+            let dueCount = SpacedRepetition.cardsDueToday(in: deck).count
+            print("Hosted Deck \(deck.name ?? "Untitled"): \(dueCount) quizzes today")
+            return count + dueCount
+        }
+    }
 }
 
 struct DeckGridView: View {
     let decks: FetchedResults<Deck>
     let onEdit: (Deck) -> Void
     let onDelete: (Deck) -> Void
-    let onQuiz: (Deck) -> Void
+    let onQuiz: (Deck, String) -> Void
     
     @Environment(\.managedObjectContext) private var viewContext
     
@@ -236,51 +276,87 @@ struct DeckGridView: View {
                 spacing: 16
             ) {
                 ForEach(decks) { deck in
-                    NavigationLink {
-                        CardListView(deck: deck)
-                            .environment(\.managedObjectContext, viewContext)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(deck.name ?? "Untitled")
-                                .font(.system(.headline, design: .rounded))
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
-                            if let category = deck.category {
-                                Text(category)
-                                    .font(.system(.subheadline))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                            Text("Progress: \(deckProgress(for: deck))")
-                                .font(.system(.caption))
-                                .foregroundStyle(.blue)
-                        }
-                        .padding()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .shadow(color: Color(hex: "#87CEEB").opacity(0.3), radius: 4)
-                    }
-                    .contextMenu {
-                        Button("Quiz") {
-                            onQuiz(deck)
-                        }
-                        if !deck.isHosted {
-                            Button("Edit") {
-                                onEdit(deck)
-                            }
-                            Button("Delete", role: .destructive) {
-                                onDelete(deck)
-                            }
-                        }
-                    }
+                    DeckRowView(
+                        deck: deck,
+                        onEdit: onEdit,
+                        onDelete: onDelete,
+                        onQuiz: onQuiz
+                    )
                 }
             }
             .padding(.horizontal)
         }
     }
+}
+
+struct DeckRowView: View {
+    let deck: Deck
+    let onEdit: (Deck) -> Void
+    let onDelete: (Deck) -> Void
+    let onQuiz: (Deck, String) -> Void
     
-    private func deckProgress(for deck: Deck) -> String {
+    @Environment(\.managedObjectContext) private var viewContext
+    @State private var selectedDifficulty: String = "All"
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            NavigationLink {
+                CardListView(deck: deck)
+                    .environment(\.managedObjectContext, viewContext)
+            } label: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(deck.name ?? "Untitled")
+                        .font(.system(.headline, design: .rounded))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    if let category = deck.category {
+                        Text(category)
+                            .font(.system(.subheadline))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    Text("Progress: \(deckProgress)")
+                        .font(.system(.caption))
+                        .foregroundStyle(.blue)
+                }
+            }
+            HStack {
+                Picker("Difficulty", selection: $selectedDifficulty) {
+                    Text("All").tag("All")
+                    Text("Beginner").tag("Beginner")
+                    Text("Intermediate").tag("Intermediate")
+                    Text("Advanced").tag("Advanced")
+                }
+                .pickerStyle(.menu)
+                .font(.system(.caption))
+                .onChange(of: selectedDifficulty) { newValue in
+                    print("Difficulty changed for deck \(deck.name ?? "Untitled"): \(newValue)")
+                }
+                Spacer()
+                Button(action: {
+                    onQuiz(deck, selectedDifficulty)
+                }) {
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 28))
+                        .foregroundStyle(.green)
+                }
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: Color(hex: "#87CEEB").opacity(0.3), radius: 4)
+        .contextMenu {
+            if !deck.isHosted {
+                Button("Delete", role: .destructive) {
+                    onDelete(deck)
+                }
+            }
+        }
+    }
+    
+    private var deckProgress: String {
         let cards = deck.cards as? Set<Card> ?? []
         guard !cards.isEmpty else { return "0%" }
         let averageMastery = cards.map { $0.mastery }.reduce(0.0, +) / Double(cards.count)

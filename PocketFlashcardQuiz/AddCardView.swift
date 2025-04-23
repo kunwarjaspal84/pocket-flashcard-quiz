@@ -34,8 +34,11 @@ struct AddCardView: View {
         NavigationStack {
             Form {
                 TextField("Front", text: $front)
+                    .disableAutocorrection(true)
                 TextField("Back", text: $back)
+                    .disableAutocorrection(true)
                 TextField("Tags (Optional)", text: $tags)
+                    .disableAutocorrection(true)
                 Picker("Difficulty", selection: $difficulty) {
                     ForEach(difficulties, id: \.self) { level in
                         Text(level).tag(level)
@@ -64,7 +67,7 @@ struct AddCardView: View {
         targetCard.back = back
         targetCard.tags = tags.isEmpty ? nil : tags
         targetCard.difficulty = difficulty
-        targetCard.mastery = targetCard.mastery // Preserve existing
+        targetCard.mastery = targetCard.mastery
         targetCard.interval = targetCard.interval
         targetCard.lastReviewed = targetCard.lastReviewed
         targetCard.deck = deck

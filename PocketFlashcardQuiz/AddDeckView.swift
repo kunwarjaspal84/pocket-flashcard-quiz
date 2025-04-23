@@ -21,7 +21,9 @@ struct AddDeckView: View {
         NavigationStack {
             Form {
                 TextField("Deck Name", text: $name)
+                    .disableAutocorrection(true)
                 TextField("Category (Optional)", text: $category)
+                    .disableAutocorrection(true)
             }
             .navigationTitle(deck == nil ? "New Deck" : "Edit Deck")
             .toolbar {
@@ -49,9 +51,9 @@ struct AddDeckView: View {
         
         do {
             try viewContext.save()
-            print("Saved deck: \(name), isHosted: \(targetDeck.isHosted)")
+            print("Saved deck: \(name), isHosted: \(targetDeck.isHosted), ID: \(targetDeck.id?.uuidString ?? "nil")")
         } catch {
-            print("Error saving deck: \(error)")
+            print("Error saving deck: \(error.localizedDescription)")
         }
     }
 }

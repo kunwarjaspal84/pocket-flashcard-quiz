@@ -3,17 +3,20 @@ import CoreData
 
 struct CardListView: View {
     @Environment(\.managedObjectContext) private var viewContext
-    let deck: Deck
+    @ObservedObject var deck: Deck
     
     @FetchRequest private var cards: FetchedResults<Card>
+    @State private var editMode: EditMode = .inactive
+    @State private var selectedCards: Set<Card> = []
     @State private var showingAddCard = false
-    @State private var cardToDelete: Card?
+    @State private var showingEditDeck = false
     
     init(deck: Deck) {
         self.deck = deck
         self._cards = FetchRequest(
             sortDescriptors: [NSSortDescriptor(keyPath: \Card.front, ascending: true)],
-            predicate: NSPredicate(format: "deck == %@", deck)
+            predicate: NSPredicate(format: "deck == %@", deck),
+            animation: .default
         )
     }
     
@@ -21,42 +24,89 @@ struct CardListView: View {
         NavigationStack {
             ZStack {
                 LinearGradient(
-                    colors: [.init(hex: "#E6E6FA"), .init(hex: "#D8BFD8")],
+                    colors: [Color(hex: "#E6E6FA"), Color(hex: "#D8BFD8")],
                     startPoint: .top,
                     endPoint: .bottom
                 )
                 .ignoresSafeArea()
                 
-                if cards.isEmpty {
-                    Text("No cards in this deck")
-                        .font(.system(.title2))
-                        .foregroundStyle(.secondary)
-                } else {
-                    List {
-                        ForEach(cards) { card in
-                            CardRowView(card: card, isHosted: deck.isHosted)
-                                .contextMenu {
-                                    if !deck.isHosted {
-                                        Button("Delete", role: .destructive) {
-                                            cardToDelete = card
-                                        }
-                                    }
-                                }
+                List {
+                    if deck.isHosted {
+                        HStack {
+                            Text("Hosted")
+                                .font(.system(.caption, design: .rounded))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.orange)
+                                .clipShape(Capsule())
+                            Spacer()
                         }
                     }
-                    .listStyle(.plain)
+                    ForEach(cards) { card in
+                        CardRowView(
+                            card: card,
+                            isSelected: selectedCards.contains(card),
+                            editMode: editMode,
+                            onSelect: {
+                                if editMode.isEditing {
+                                    if selectedCards.contains(card) {
+                                        selectedCards.remove(card)
+                                    } else {
+                                        selectedCards.insert(card)
+                                    }
+                                }
+                            }
+                        )
+                    }
+                    .onDelete(perform: deck.isHosted ? nil : deleteCards)
                 }
+                .listStyle(.plain)
+                .environment(\.editMode, $editMode)
             }
-            .navigationTitle(deck.name ?? "")
+            .navigationTitle(deck.name ?? "Untitled")
             .toolbar {
-                if !deck.isHosted {
-                    Button(action: { showingAddCard = true }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(.white)
-                            .padding(8)
-                            .background(.blue)
-                            .clipShape(Circle())
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if !deck.isHosted {
+//                        Button(action: {
+//                            showingEditDeck = true
+//                        }) {
+//                            Image(systemName: "pencil")
+//                                .font(.system(size: 16, weight: .bold))
+//                                .foregroundStyle(.white)
+//                                .padding(8)
+//                                .background(.blue)
+//                                .clipShape(Circle())
+//                        }
+                        if !cards.isEmpty {
+                            Button(action: {
+                                editMode = editMode.isEditing ? .inactive : .active
+                                selectedCards.removeAll()
+                            }) {
+                                Text(editMode.isEditing ? "Done" : "Edit")
+                            }
+                        }
+                        Button(action: {
+                            showingAddCard = true
+                        }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(8)
+                                .background(.blue)
+                                .clipShape(Circle())
+                        }
+                    }
+                }
+                if editMode.isEditing && !selectedCards.isEmpty {
+                    ToolbarItem(placement: .bottomBar) {
+                        Button(action: {
+                            deleteSelectedCards()
+                            editMode = .inactive
+                        }) {
+                            Image(systemName: "trash")
+                                .foregroundStyle(.red)
+                        }
                     }
                 }
             }
@@ -64,66 +114,95 @@ struct CardListView: View {
                 AddCardView(deck: deck)
                     .environment(\.managedObjectContext, viewContext)
             }
-            .alert("Delete Card", isPresented: Binding(
-                get: { cardToDelete != nil },
-                set: { if !$0 { cardToDelete = nil } }
-            )) {
-                Button("Delete", role: .destructive) {
-                    if let card = cardToDelete {
-                        viewContext.delete(card)
-                        try? viewContext.save()
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Are you sure you want to delete this card?")
+            .sheet(isPresented: $showingEditDeck) {
+                AddDeckView(deck: deck)
+                    .environment(\.managedObjectContext, viewContext)
             }
+            .onAppear {
+                print("CardListView appeared for deck: \(deck.name ?? "Untitled"), isHosted: \(deck.isHosted)")
+                print("Cards fetched: \(cards.count)")
+                for card in cards {
+                    print("Card: front=\(card.front), back=\(card.back), difficulty=\(card.difficulty ?? "nil"), tags=\(card.tags ?? "nil")")
+                }
+            }
+        }
+    }
+    
+    private func deleteCards(offsets: IndexSet) {
+        withAnimation {
+            offsets.map { cards[$0] }.forEach(viewContext.delete)
+            try? viewContext.save()
+            print("Deleted cards at offsets: \(offsets)")
+        }
+    }
+    
+    private func deleteSelectedCards() {
+        withAnimation {
+            selectedCards.forEach(viewContext.delete)
+            try? viewContext.save()
+            selectedCards.removeAll()
+            print("Deleted \(selectedCards.count) selected cards")
         }
     }
 }
 
 struct CardRowView: View {
     let card: Card
-    let isHosted: Bool
+    let isSelected: Bool
+    let editMode: EditMode
+    let onSelect: () -> Void
     
     var body: some View {
-        NavigationLink {
-            AddCardView(deck: card.deck!, card: isHosted ? nil : card)
-                .environment(\.managedObjectContext, card.deck!.managedObjectContext!)
-        } label: {
+        HStack {
+            if editMode.isEditing {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? .blue : .gray)
+                    .onTapGesture {
+                        onSelect()
+                    }
+            }
             VStack(alignment: .leading, spacing: 4) {
                 Text(card.front ?? "")
-                    .font(.system(.headline, design: .rounded))
+                    .font(.system(.body, design: .rounded))
                     .foregroundStyle(.primary)
                 Text(card.back ?? "")
                     .font(.system(.subheadline))
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                HStack {
-                    Text("Tags: \(card.tags ?? "None")")
+                if let tags = card.tags, !tags.isEmpty {
+                    Text(tags)
                         .font(.system(.caption))
                         .foregroundStyle(.blue)
-                    Text("Difficulty: \(card.difficulty ?? "Unknown")")
+                }
+                if let difficulty = card.difficulty {
+                    Text(difficulty)
                         .font(.system(.caption))
                         .foregroundStyle(.purple)
                 }
+            }
+            Spacer()
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if editMode.isEditing {
+                onSelect()
             }
         }
     }
 }
 
 #Preview {
-    CardListView(deck: {
-        let context = PersistenceController.preview.container.viewContext
-        let deck = Deck(context: context)
-        deck.name = "Test Deck"
-        let card = Card(context: context)
-        card.front = "Big"
-        card.back = "Large"
-        card.tags = "Vocabulary"
-        card.difficulty = "Beginner"
-        card.deck = deck
-        return deck
-    }())
-        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+    let context = PersistenceController.preview.container.viewContext
+    let deck = Deck(context: context)
+    deck.name = "Sample Deck"
+    deck.createdAt = Date()
+    deck.isHosted = false
+    let card = Card(context: context)
+    card.front = "1+1"
+    card.back = "2"
+    card.difficulty = "Beginner"
+    card.tags = "math"
+    card.deck = deck
+    return CardListView(deck: deck)
+        .environment(\.managedObjectContext, context)
 }

@@ -1,23 +1,21 @@
-import Foundation
 import CoreData
 
 class SpacedRepetition {
     static func cardsDueToday(in deck: Deck) -> [Card] {
         let cards = deck.cards as? Set<Card> ?? []
+        let today = Calendar.current.startOfDay(for: Date())
         return cards.filter { card in
             guard let lastReviewed = card.lastReviewed else { return true }
             let interval = card.interval
-            let nextReview = lastReviewed.addingTimeInterval(interval * 24 * 60 * 60)
-            let isDue = Date() >= nextReview
-            print("Card \(card.front) due check: lastReviewed=\(lastReviewed), interval=\(interval), nextReview=\(nextReview), isDue=\(isDue)")
-            return isDue
-        }
+            let nextReviewDate = Calendar.current.date(byAdding: .day, value: Int(interval), to: lastReviewed) ?? today
+            return nextReviewDate <= today
+        }.sorted { $0.front ?? "" < $1.front ?? "" }
     }
     
-    static func updateCard(card: Card, rating: Int) {
+    static func updateCard(_ card: Card, score: Int, context: NSManagedObjectContext) {
         let easeFactor = card.easeFactor > 0 ? card.easeFactor : 2.5
-        let newMastery = min(card.mastery + Double(rating) / 5.0, 1.0)
-        let quality = max(0, min(rating, 5))
+        let newMastery = min(card.mastery + Double(score) / 5.0, 1.0)
+        let quality = max(0, min(score, 5))
         
         var newEaseFactor = easeFactor
         if quality >= 3 {
@@ -42,5 +40,12 @@ class SpacedRepetition {
         card.interval = newInterval
         card.easeFactor = newEaseFactor
         card.lastReviewed = Date()
+        
+        do {
+            try context.save()
+            print("Saved card: \(card.front), Mastery: \(card.mastery), Interval: \(card.interval)")
+        } catch {
+            print("Error saving card: \(error.localizedDescription)")
+        }
     }
 }
